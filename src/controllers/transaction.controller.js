@@ -1,7 +1,7 @@
 const transactionModel = require("../models/transaction.model")
 const ledgerModel = require("../models/ledger.model")
 const accountModel = require("../models/account.model")
-
+const emailService = require("../services/email.service")
 
 const mongoose = require("mongoose")
 
@@ -19,3 +19,20 @@ const mongoose = require("mongoose")
      * 9. Commit MongoDB session
      * 10. Send email notification
  */
+
+
+async function createTransaction(req, res) {
+
+    /**
+     * 1. Validate request
+     */
+
+    const { fromAccount, toAccount, amount, idempotencyKey } = req.body;
+
+    if (!fromAccount || !toAccount || !amount || !idempotencyKey) {
+        return res.status(400).json({
+            message: "FromAccount, toAccount, amount and idempotencyKey are required"
+        })
+    }
+
+}
