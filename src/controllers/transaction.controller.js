@@ -121,10 +121,61 @@ async function createTransaction(req, res) {
         const session = await mongoose.startSession()
         session.startTransaction()
         
+
+        transaction = (await transactionModel.create([ {
+            fromAccount,
+            toAccount,
+            amount,
+            idempotencyKey,
+            status: "PENDING"
+        } ], { session }))[ 0 ]
+
+        const debitLedgerEntry = await ledgerModel.create([{
+            account : fromAccount,
+            amount : amount,
+            transaction : transaction._id,
+            type : "DEBIT"
+        }], { session })
+
+
+        await (() => {
+            return new Promise((resolve) => setTimeout(resolve, 15 * 1000));
+        })()
+
+
+        const creditLedgerEntry = await ledgerModel.create([{
+            account : toAccount,
+            amount : amount,
+            transaction : transaction._id,
+            type : "CREDIT"
+        }], { session })
+
+
+        await transactionModel.findOneAndUpdate(
+            { _id: transaction._id },
+            { status: "COMPLETED" },
+            { session }
+        )
+
+
+        await session.commitTransaction()
+        session.endSession()
+
      } catch (error) {
-        
+        return res.status(400).json({
+            message: "Transaction is Pending due to some issue, please retry after sometime",
+        })
      }
 
+     /**
+     * 10. Send email notification
+     */
+    await emailService.sendTransactionEmail(req.user.email, req.user.name, amount, toAccount)
+
+    return res.status(201).json({
+        message: "Transaction completed successfully",
+        transaction: transaction
+    })
 }
 
 
@@ -198,5 +249,6 @@ async function createInitialFundsTransaction(req, res) {
 
 module.exports = {
     createTransaction,
-    createInitialFundsTransaction
+    createInitialFundsTransaction,
+    
 }
